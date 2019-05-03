@@ -1,0 +1,213 @@
+#!/bin/bash
+#
+# Copyright (c) 2019 Ayoume Inc.
+# All rights reserved.
+#
+# "Common Script For Golang Project Building" version 1.0
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+#    * Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above
+# copyright notice, this list of conditions and the following disclaimer
+# in the documentation and/or other materials provided with the
+# distribution.
+#    * Neither the name of Ayoume Inc. nor the names of its
+# contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES_; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# ---
+# Author:  Zich
+# Created: 2019-03-07 10:46:00
+# E-mail:  zich@ayoume.com
+#
+# ---
+# Description:
+#   The common script for building golang project.
+#
+################################################################################
+
+set -e
+
+################################################################################
+#                                                                              #
+#                                    MACROS                                    #
+#                                                                              #
+################################################################################
+
+function SET_HEAD() {
+    local head_tag="$1"
+    if [ -z "${head_tag}" ]; then
+        head_tag="$(
+            echo "$(basename "$0")" |
+            sed "s/[^a-zA-Z0-9]/_/g" |
+            tr "[a-z]" "[A-Z]" |
+            sed "s/$/_/g"
+        )"
+    fi
+    eval '
+        [ -n "${'${head_tag}'}" ] && return 0
+        readonly '${head_tag}'="'${head_tag}'"
+    '
+    return 1
+}
+
+###############################################################################
+
+SET_HEAD "MACROS_SLIB_" && return 0
+
+###############################################################################
+
+function CHECK_VARIABLE() {
+    local -r variable_name="$1"
+    eval '
+        if [ -z "${'${variable_name}'}" ]; then
+            echo "<'${variable_name}'> not defined!"
+            exit 1
+        fi
+    '
+}
+
+function CHECK_VARIABLES() {
+    local -r variable_counts="$#"
+    for (( i=1; i<=variable_counts; i++ )); do
+        eval '
+            local variable_name="$'${i}'"
+            CHECK_VARIABLE "${variable_name}"
+        '
+    done
+}
+
+###############################################################################
+
+readonly RELATIVE_TYPE="relative"
+readonly ABSOLUTE_TYPE="absolute"
+
+###############################################################################
+
+function GET_CURRENT_PATH() {
+    echo "$(
+        echo "$(cd "$(dirname "$0")" && pwd)/" |
+        sed "s/\/\/*/\//g" |
+        sed "s/.$//g"
+    )"
+}
+
+function SET_RELATIVE_PATH() {
+    local -r path_name="$1"
+    local -r relative_path="$2"
+
+    eval '
+        if [ -z "${'${path_name}'}" ]; then
+            readonly '${path_name}'="$(GET_CURRENT_PATH)/'${relative_path}'"
+        fi
+    '
+}
+
+function SET_ABSOLUTE_PATH() {
+    local -r path_name="$1"
+    local -r absolute_path="$2"
+
+    eval '
+        if [ -z "${'${path_name}'}" ]; then
+            readonly '${path_name}'="'${absolute_path}'"
+        fi
+    '
+}
+
+function SET_PATH() {
+    local -r path_name="$1"
+    local -r input_path="$2"
+    local -r path_type="$3"
+
+    if [ "${path_type}" == "${ABSOLUTE_TYPE}" ]; then
+        SET_ABSOLUTE_PATH "${path_name}" "${input_path}"
+    else
+        SET_RELATIVE_PATH "${path_name}" "${input_path}"
+    fi
+}
+
+###############################################################################
+
+function SET_SHELL_LIBRARIES_PATH() {
+    local -r input_path="$1"
+    local -r path_type="$2"
+    SET_PATH "SHELL_LIBRARIES_PATH" "${input_path}" "${path_type}"
+}
+
+function SET_SHUNITTEST_HOME() {
+    local -r input_path="$1"
+    local -r path_type="$2"
+    SET_PATH "SHUNITTEST_HOME" "${input_path}" "${path_type}"
+}
+
+###############################################################################
+
+function BLANK_FUNCTION_BODY() {
+    local
+}
+
+###############################################################################
+
+function RUN_FUNCTION() {
+    local -r function_command="$1"
+    local -r function_name="${function_command%% *}"
+    eval '
+        '${function_command}'
+        unset -f '${function_name}'
+    '
+}
+
+function RUN_FUNCTIONS() {
+    local -r function_counts="$#"
+    for (( i=1; i<=function_counts; i++ )); do
+        eval '
+            local function_name="$'${i}'"
+            RUN_FUNCTION "${function_name}"
+        '
+    done
+}
+
+###############################################################################
+
+function readonly_variables() {
+    BLANK_FUNCTION_BODY
+}
+
+function readonly_functions() {
+    readonly -f CHECK_VARIABLE
+    readonly -f CHECK_VARIABLES
+    readonly -f GET_CURRENT_PATH
+    readonly -f SET_RELATIVE_PATH
+    readonly -f SET_ABSOLUTE_PATH
+    readonly -f SET_PATH
+    readonly -f SET_SHELL_LIBRARIES_PATH
+    readonly -f SET_SHUNITTEST_HOME
+    readonly -f BLANK_FUNCTION_BODY
+    readonly -f RUN_FUNCTION
+    readonly -f RUN_FUNCTIONS
+}
+
+function readonlys() {
+    RUN_FUNCTION "readonly_variables"
+    RUN_FUNCTION "readonly_functions"
+}
+
+###############################################################################
+
+RUN_FUNCTION "readonlys"
